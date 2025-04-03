@@ -78,8 +78,8 @@ enum Token {
   Divide, // '/'
   Modulus, // '%'
   Assign, // '='
-  ParensOpen, // '('
-  ParensClose, // ')'
+  LeftParen, // '('
+  RightParen, // ')'
   LeftCurly, // '{'
   RightCurly, // '}'
   LeftBracket, // '['
@@ -182,12 +182,12 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
     }
 
     '(' => {
-      tokens.push(Token::ParensOpen);
+      tokens.push(Token::LeftParen);
       i += 1;
     }
 
     ')' => {
-      tokens.push(Token::ParensClose);
+      tokens.push(Token::RightParen);
       i += 1;
     }
 
