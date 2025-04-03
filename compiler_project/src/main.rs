@@ -306,6 +306,19 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
       let token = create_identifier(stringtoken);
       tokens.push(token);
     }
+
+    '#' => {
+      i+=1;
+      while i < bytes.len() {
+        let digit = bytes[i] as char;
+        if digit != '\n' {
+          i += 1;
+        } else {
+          i += 1;
+          break;
+        }
+      }
+    }
     
 
     _ => {
