@@ -160,6 +160,24 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
       i += 1;
     }
 
+    'a'..='z' | 'A'..='Z' => {
+      let start = i;
+      i += 1;
+      while i < bytes.len() {
+        let digit = bytes[i] as char;
+        if (digit >= 'a' && digit <= 'z') | (digit >= 'A' && digit <= 'Z') | (digit >= '0' && digit <= '9') | (digit == '_') {
+          i += 1;
+        } else {
+          break;
+        }
+      }
+      let end = i;
+      let stringtoken = &code[start..end];
+      let token = create_identifier(stringtoken);
+      tokens.push(token);
+    }
+    
+
     _ => {
       return Err(format!("Unrecognized symbol '{}'", c));
     }
@@ -169,6 +187,22 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
 
   tokens.push(Token::End);
   return Ok(tokens);
+}
+
+fn create_identifier(code: &str) -> Token {
+  match code {
+  "func" => Token::Func,
+  "return" => Token::Return,
+  "int" => Token::Int,
+  "print" => Token::Print,
+  "read" => Token::Read,
+  "while" => Token::While,
+  "if" => Token::If,
+  "else" => Token::Else,
+  "break" => Token::Else,
+  "continue" => Token::Continue,
+  _ => Token::Ident(String::from(code)),
+  }
 }
 
 // writing tests!
