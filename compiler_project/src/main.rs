@@ -176,11 +176,6 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
       i += 1;
     }
 
-    '=' => {
-      tokens.push(Token::Assign);
-      i += 1;
-    }
-
     '(' => {
       tokens.push(Token::LeftParen);
       i += 1;
