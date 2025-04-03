@@ -329,7 +329,7 @@ fn create_identifier(code: &str) -> Token {
   "while" => Token::While,
   "if" => Token::If,
   "else" => Token::Else,
-  "break" => Token::Else,
+  "break" => Token::Break,
   "continue" => Token::Continue,
   _ => Token::Ident(String::from(code)),
   }
