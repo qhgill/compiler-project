@@ -30,7 +30,7 @@ fn main() {
         return;
     }
 
-    Ok(code) => {
+    Ok(code) => { 
         code
     } 
 
@@ -155,6 +155,136 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
       tokens.push(Token::Plus);
       i += 1;
     }
+
+    '-' => {
+      tokens.push(Token::Subtract);
+      i += 1;
+    }
+
+    '*' => {
+      tokens.push(Token::Multiply);
+      i += 1;
+    }
+
+    '/' => {
+      tokens.push(Token::Divide);
+      i += 1;
+    }
+
+    '%' => {
+      tokens.push(Token::Modulus);
+      i += 1;
+    }
+
+    '=' => {
+      tokens.push(Token::Assign);
+      i += 1;
+    }
+
+    '(' => {
+      tokens.push(Token::ParensOpen);
+      i += 1;
+    }
+
+    ')' => {
+      tokens.push(Token::ParensClose);
+      i += 1;
+    }
+
+    '{' => {
+      tokens.push(Token::LeftCurly);
+      i += 1;
+    }
+
+    '}' => {
+      tokens.push(Token::RightCurly);
+      i += 1;
+    }
+
+    '[' => {
+      tokens.push(Token::LeftBracket);
+      i += 1;
+    }
+
+    ']' => {
+      tokens.push(Token::RightBracket);
+      i += 1;
+    }
+
+    ';' => {
+      tokens.push(Token::Semicolon);
+      i += 1;
+    }
+
+    ',' => {
+      tokens.push(Token::Comma);
+      i += 1;
+    }
+
+    '<' => {
+      if i + 1 < bytes.len() {
+        if bytes[i+1] as char == '=' {
+          tokens.push(Token::LessEqual);
+          i += 2;
+        }
+        else{
+          tokens.push(Token::Less);
+          i += 1;
+        }
+      }
+      else{
+        tokens.push(Token::Less);
+        i += 1;
+      }
+    }
+
+    '>' => {
+      if i + 1 < bytes.len() {
+        if bytes[i+1] as char == '=' {
+          tokens.push(Token::GreaterEqual);
+          i += 2;
+        }
+        else{
+          tokens.push(Token::Greater);
+          i += 1;
+        }
+      }
+      else{
+        tokens.push(Token::Greater);
+        i += 1;
+      }
+    }
+
+    '=' => {
+      if i + 1 < bytes.len(){
+        if bytes[i+1] as char == '=' {
+          tokens.push(Token::Equality);
+          i += 2
+        }
+        else{
+          tokens.push(Token::Assign);
+          i += 1;
+        }
+      }
+      else{
+        tokens.push(Token::Assign);
+        i += 1;
+      }
+    }
+
+    '!' => {
+      if i + 1 < bytes.len() {
+        if bytes[i+1] as char == '=' {
+          tokens.push(Token::NotEqual);
+          i += 2
+        }
+        else{
+          return Err(format!("Lexical Error '{}'", c));
+        }
+      }
+    }
+
+
 
     ' ' | '\n' => {
       i += 1;
