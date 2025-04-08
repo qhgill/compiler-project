@@ -141,8 +141,8 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
         if digit >= '0' && digit <= '9' {
           i += 1;
         } else if (digit >= 'a' && digit <= 'z') | (digit >= 'A' && digit <= 'Z') | (digit == '_') {
-          let s = format!("{:?}",&bytes[start..i+1]);
-          return Err(format!("Invalid Identifier '{:?}'", s));
+          let s = format!("{}",&code[start..i+1]);
+          return Err(format!("Invalid Identifier {:?}", s));
         } else {
           break;
         }
