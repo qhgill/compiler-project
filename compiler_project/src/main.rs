@@ -281,6 +281,10 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
           return Err(format!("Unrecognized Symbol '{}'", s));
         }
       }
+      else{
+          return Err(format!("Unrecognized Symbol '{}'", c));
+      }
+      
     }
 
 
