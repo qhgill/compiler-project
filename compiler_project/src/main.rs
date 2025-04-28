@@ -140,6 +140,9 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
         let digit = bytes[i] as char;
         if digit >= '0' && digit <= '9' {
           i += 1;
+        } else if (digit >= 'a' && digit <= 'z') | (digit >= 'A' && digit <= 'Z') | (digit == '_') {
+          let s = format!("{}",&code[start..i+1]);
+          return Err(format!("Invalid Identifier {:?}", s));
         } else {
           break;
         }
@@ -274,9 +277,14 @@ fn lex(code: &str) -> Result<Vec<Token>, String> {
           i += 2
         }
         else{
-          return Err(format!("Lexical Error '{}'", c));
+          let s = format!("{}{}", c, bytes[i+1] as char);
+          return Err(format!("Unrecognized Symbol '{}'", s));
         }
       }
+      else{
+          return Err(format!("Unrecognized Symbol '{}'", c));
+      }
+      
     }
 
 
