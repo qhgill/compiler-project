@@ -511,36 +511,30 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String>
   Token::Ident(_) => parse_assignment_statement(tokens, index),
   Token::Break => {
     *index += 1;
-    match tokens[*index]{
+    Ok(match tokens[*index]{
       Token::Semicolon => {*index += 1;}
-      _ => {return Err(String::from("Statements must end with a semicolon"));}
-    }
+      _ =>  {return Err(String::from("Statements must end with a semicolon"));}
+    })
   },
   Token::Continue => {
     *index += 1;
-    match tokens[*index]{
+    Ok(match tokens[*index]{
       Token::Semicolon => {*index += 1;}
       _ => {return Err(String::from("Statements must end with a semicolon"));}
-    }
+    })
   },
-  parse_while_statement(tokens, index){
-    Ok(()) => {},
-    Err(e) => {return Err(e);}
-  },
-  parse_if_statement(tokens, index){
-    Ok(()) => {},
-    Err(e) => {return Err(e);}
-  },
+  Token::While => parse_while_statement(tokens, index),
+  Token::If => parse_if_statement(tokens,index),
   Token::Return => parse_return_statement(tokens, index),
   Token::Print => parse_print_statement(tokens, index),
   Token::Read => parse_read_statement(tokens, index),
   _ => Err(String::from("invalid statement"))
-  }
+  };
 
   return Ok(());
 }
 
-//missing brackets and number for array access
+//untested
 fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Int => {*index += 1;}
@@ -548,6 +542,23 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   }
 
   match tokens[*index] {
+  Token::LeftBracket => {
+    *index += 1;
+    match tokens[*index] {
+      Token::Num(_) => {*index += 1;}
+      _ => {return Err(String::from("Brackets must contain a number"));}
+    }
+
+    match tokens[*index] {
+      Token::RightBracket => {*index += 1;}
+      _ => {return Err(String::from("must have a closing bracket"));}
+    }
+
+    match tokens[*index] {
+      Token::Ident(_) => {*index += 1;}
+      _ => {return Err(String::from("Declarations must have an identifier"));}
+    }
+  }
   Token::Ident(_) => {*index += 1;}
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
@@ -560,7 +571,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   return Ok(());
 }
 
-//missing brackets after identifier for array access
+//untested
 fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Ident(_) => {*index += 1;}
@@ -568,6 +579,23 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
   }
 
   match tokens[*index] {
+    Token::LeftBracket => {
+      *index += 1;
+      match tokens[*index] {
+        Token::Num(_) => {*index += 1;}
+        _ => {return Err(String::from("Brackets must contain a number"));}
+      }
+  
+      match tokens[*index] {
+        Token::RightBracket => {*index += 1;}
+        _ => {return Err(String::from("must have a closing bracket"));}
+      }
+  
+      match tokens[*index] {
+        Token::Assign => {*index += 1;}
+        _ => {return Err(String::from("Statement is missing the '=' operator"));}
+      }
+    }
   Token::Assign => {*index += 1;}
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
@@ -759,19 +787,19 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
 
 fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
-
+    _ => {return Err(String::from("parse while statement incomplete"));}
   }
 }
 
 fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
-
+    _ => {return Err(String::from("parse while statement incomplete"));}
   }
 }
 
 fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
-
+    _ => {return Err(String::from("parse while statement incomplete"));}
   }
 }
 
