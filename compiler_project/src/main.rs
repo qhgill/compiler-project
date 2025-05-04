@@ -8,61 +8,124 @@ use std::env;
 // used to interact with the file system
 use std::fs;
 
-fn main() {
+// fn main() {
 
-    // Let us get commandline arguments and store them in a Vec<String>
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 1 {
-        println!("Please provide an input file through the commandline arguments for the lexer.");
-        return;
-    }
+//     // Let us get commandline arguments and store them in a Vec<String>
+//     let args: Vec<String> = env::args().collect();
+//     if args.len() == 1 {
+//         println!("Please provide an input file through the commandline arguments for the lexer.");
+//         return;
+//     }
 
-    if args.len() > 2 {
-        println!("Too many commandline arguments.");
-        return;
-    }
+//     if args.len() > 2 {
+//         println!("Too many commandline arguments.");
+//         return;
+//     }
 
-    // read the entire file contents, storing them inside 'code' as a string.
-    let filename = &args[1];
-    let code = match fs::read_to_string(filename) {
-    Err(error) => {
-        println!("**Error. File \"{}\": {}", filename, error);
-        return;
-    }
+//     // read the entire file contents, storing them inside 'code' as a string.
+//     let filename = &args[1];
+//     let code = match fs::read_to_string(filename) {
+//     Err(error) => {
+//         println!("**Error. File \"{}\": {}", filename, error);
+//         return;
+//     }
 
-    Ok(code) => { 
-        code
-    } 
+//     Ok(code) => { 
+//         code
+//     } 
 
-    };
+//     };
 
-    let tokens = match lex(&code) {
-    Err(error_message) => {
-        println!("**Error**");
-        println!("----------------------");
-        println!("{}", error_message);
-        println!("----------------------");
-        return;
-    }
+//     let tokens = match lex(&code) {
+//     Err(error_message) => {
+//         println!("**Error**");
+//         println!("----------------------");
+//         println!("{}", error_message);
+//         println!("----------------------");
+//         return;
+//     }
 
-    Ok(data) => data,
+//     Ok(data) => data,
     
-    };
+//     };
 
 
-    // print out the lexer tokens parsed.
+//     // print out the lexer tokens parsed.
 
-    println!("----------------------");
-    println!("Finished Lexing the file {}", filename);
-    println!("File Contents:");
-    println!("{code}");
-    println!("Here are the Results:");
-    println!("----------------------");
-    for t in &tokens {
-      println!("{:?}", t);
-    }
+//     println!("----------------------");
+//     println!("Finished Lexing the file {}", filename);
+//     println!("File Contents:");
+//     println!("{code}");
+//     println!("Here are the Results:");
+//     println!("----------------------");
+//     for t in &tokens {
+//       println!("{:?}", t);
+//     }
 
+// }
+
+fn main() {
+  // get commandline arguments.
+  let args: Vec<String> = env::args().collect();
+  if args.len() == 1 {
+      println!("Please provide an input file.");
+      return;
+  }
+
+  if args.len() > 2 {
+      println!("Too many commandline arguments.");
+      return;
+  }
+
+  // read the entire file.
+  let filename = &args[1];
+  let result = fs::read_to_string(filename);
+  let code = match result {
+  Err(error) => {
+      println!("**Error. File \"{}\": {}", filename, error);
+      return;
+  }
+
+  Ok(code) => {
+    code
+  } 
+
+  };
+
+  let tokens = match lex(&code) {
+  Err(error_message) => {
+      println!("**Error**");
+      println!("----------------------");
+      println!("{}", error_message);
+      println!("----------------------");
+      return;
+  }
+
+  Ok(tokens) => tokens,
+  
+  };
+
+  let mut index: usize = 0;
+  match parse_program(&tokens, &mut index) {
+
+  Ok(()) => {
+      println!("Program Parsed Successfully.");
+  }
+
+  Err(message) => {
+      println!("**Error**");
+      println!("----------------------");
+      if tokens.len() == 0 {
+          println!("No code has been provided.");
+      } else {
+          println!("Error: {message}");
+          println!("----------------------");
+      }
+  }
+
+  }
 }
+
 
 // Creating an Enum within Rust.
 // Documentation: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
@@ -379,6 +442,7 @@ _ => { false }
 // }
 // a loop is done to handle statements.
 
+//untested
 fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   
   match tokens[*index] {
@@ -395,6 +459,14 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
   match tokens[*index] {
   Token::LeftParen => { *index += 1; }
   _ => { return Err(String::from("expected '('"));}
+  }
+
+  while !matches!(tokens[*index], Token::RightParen) {
+
+    match parse_declaration_statement(tokens, index) {
+    Ok(()) => {}
+    Err(e) => {return Err(e);}
+    }
   }
 
   match tokens[*index] {
@@ -431,17 +503,38 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
 // print(a)
 // read(a)
 // returns epsilon if '}'
+
+//untested
 fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Int => parse_declaration_statement(tokens, index),
   Token::Ident(_) => parse_assignment_statement(tokens, index),
+  Token::Break => {
+    *index += 1;
+    Ok(match tokens[*index]{
+      Token::Semicolon => {*index += 1;}
+      _ =>  {return Err(String::from("Statements must end with a semicolon"));}
+    })
+  },
+  Token::Continue => {
+    *index += 1;
+    Ok(match tokens[*index]{
+      Token::Semicolon => {*index += 1;}
+      _ => {return Err(String::from("Statements must end with a semicolon"));}
+    })
+  },
+  Token::While => parse_while_statement(tokens, index),
+  Token::If => parse_if_statement(tokens,index),
   Token::Return => parse_return_statement(tokens, index),
   Token::Print => parse_print_statement(tokens, index),
   Token::Read => parse_read_statement(tokens, index),
   _ => Err(String::from("invalid statement"))
-  }
+  };
+
+  return Ok(());
 }
 
+//untested
 fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Int => {*index += 1;}
@@ -449,6 +542,23 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   }
 
   match tokens[*index] {
+  Token::LeftBracket => {
+    *index += 1;
+    match tokens[*index] {
+      Token::Num(_) => {*index += 1;}
+      _ => {return Err(String::from("Brackets must contain a number"));}
+    }
+
+    match tokens[*index] {
+      Token::RightBracket => {*index += 1;}
+      _ => {return Err(String::from("must have a closing bracket"));}
+    }
+
+    match tokens[*index] {
+      Token::Ident(_) => {*index += 1;}
+      _ => {return Err(String::from("Declarations must have an identifier"));}
+    }
+  }
   Token::Ident(_) => {*index += 1;}
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
@@ -461,6 +571,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   return Ok(());
 }
 
+//untested
 fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Ident(_) => {*index += 1;}
@@ -468,6 +579,23 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
   }
 
   match tokens[*index] {
+    Token::LeftBracket => {
+      *index += 1;
+      match tokens[*index] {
+        Token::Num(_) => {*index += 1;}
+        _ => {return Err(String::from("Brackets must contain a number"));}
+      }
+  
+      match tokens[*index] {
+        Token::RightBracket => {*index += 1;}
+        _ => {return Err(String::from("must have a closing bracket"));}
+      }
+  
+      match tokens[*index] {
+        Token::Assign => {*index += 1;}
+        _ => {return Err(String::from("Statement is missing the '=' operator"));}
+      }
+    }
   Token::Assign => {*index += 1;}
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
@@ -619,6 +747,8 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
 }
 
 // a term is either a Number or an Identifier.
+
+//incomplete
 fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
 
@@ -653,6 +783,25 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   }
 }
 
+//missing while statement, if statement, boolean expression, 
+
+fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+  match tokens[*index] {
+    _ => {return Err(String::from("parse while statement incomplete"));}
+  }
+}
+
+fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+  match tokens[*index] {
+    _ => {return Err(String::from("parse while statement incomplete"));}
+  }
+}
+
+fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+  match tokens[*index] {
+    _ => {return Err(String::from("parse while statement incomplete"));}
+  }
+}
 
 // writing tests!
 // testing shows robustness in software, and is good for spotting regressions
