@@ -475,6 +475,14 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
     match tokens[*index]{
       Token::Comma => {
         *index += 1;
+        match tokens[*index] {
+          Token::RightParen => {
+            return Err(String::from("expected expression after comma"))
+          }
+          _ => {
+            *index += 0;
+          }
+        }
       }
       _ => {
         return Err(String::from("expected ')' or ','"));
@@ -835,6 +843,14 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
           match tokens[*index]{
             Token::Comma => {
               *index += 1;
+              match tokens[*index] {
+                Token::RightParen => {
+                  return Err(String::from("expected expression after comma"))
+                }
+                _ => {
+                  *index += 0;
+                }
+              }
             }
             Token::RightParen => {
               break;
@@ -846,6 +862,14 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
         }
         match tokens[*index]{
           Token::RightParen => {
+            // match tokens[*index - 1]{
+            //   Token::Comma => {
+            //     return Err(String::from("expected expression after comma"));
+            //   }
+            //   _ => {
+            //     *index += 0;
+            //   }
+            // }
             *index += 1;
             Ok(())
           }

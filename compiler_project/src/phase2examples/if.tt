@@ -1,4 +1,4 @@
-func main() {
+func main(int [3] c){
     int a;
     int b;
     int c;
@@ -14,7 +14,6 @@ func main() {
 
     # Should print out '1'.
     print(c);
-
 
 
     a = 100;
