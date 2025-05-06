@@ -467,6 +467,19 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
     Ok(()) => {}
     Err(e) => {return Err(e);}
     }
+
+    if matches!(tokens[*index], Token::RightParen){
+      break;
+    }
+
+    match tokens[*index]{
+      Token::Comma => {
+        *index += 1;
+      }
+      _ => {
+        return Err(String::from("expected ')' or ','"));
+      }
+    }
   }
 
   match tokens[*index] {
@@ -507,38 +520,67 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
 //untested
 fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
-  Token::Int => parse_declaration_statement(tokens, index),
-  Token::Ident(_) => parse_assignment_statement(tokens, index),
-  Token::Break => {
-    *index += 1;
-    Ok(match tokens[*index]{
-      Token::Semicolon => {*index += 1;}
-      _ =>  {return Err(String::from("Statements must end with a semicolon"));}
-    })
-  },
-  Token::Continue => {
-    *index += 1;
-    Ok(match tokens[*index]{
-      Token::Semicolon => {*index += 1;}
-      _ => {return Err(String::from("Statements must end with a semicolon"));}
-    })
-  },
-  Token::While => parse_while_statement(tokens, index),
-  Token::If => parse_if_statement(tokens,index),
-  Token::Return => parse_return_statement(tokens, index),
-  Token::Print => parse_print_statement(tokens, index),
-  Token::Read => parse_read_statement(tokens, index),
-  _ => Err(String::from("invalid statement"))
-  };
+    Token::Int => {      
+      match parse_declaration_statement(tokens, index) {
+        Ok(()) => {}
+        Err(e) => return Err(e),
+      }
 
-  return Ok(());
+      match tokens[*index]{
+        Token::Semicolon => {
+          *index += 1;
+          Ok(())
+        }
+        _ => {return Err(String::from("Statements must end with a semicolon"));}
+      }
+
+    }
+    Token::Ident(_) => parse_assignment_statement(tokens, index),
+    Token::Break => {
+      *index += 1;
+      match tokens[*index] {
+        Token::Semicolon => {
+          *index += 1;
+          Ok(())
+        }
+        _ => {
+          println!("Current token: {:?}", tokens[*index]);
+          Err(String::from("Statements must end with a semicolon"))
+        }
+      }
+    }
+    Token::Continue => {
+      *index += 1;
+      match tokens[*index] {
+        Token::Semicolon => {
+          *index += 1;
+          Ok(())
+        }
+        _ => {
+          println!("Current token: {:?}", tokens[*index]);
+          Err(String::from("Statements must end with a semicolon"))
+        }
+      }
+    }
+    Token::While => parse_while_statement(tokens, index),
+    Token::If => parse_if_statement(tokens, index),
+    Token::Return => parse_return_statement(tokens, index),
+    Token::Print => parse_print_statement(tokens, index),
+    Token::Read => parse_read_statement(tokens, index),
+    _ => {
+      println!("Current token: {:?}", tokens[*index]);
+      Err(String::from("invalid statement"))
+    }
+  }
 }
 
 //untested
 fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
   Token::Int => {*index += 1;}
-  _ => {return Err(String::from("Declaration statements must being with 'int' keyword"));}
+  _ => {
+         println!("Current token: {:?}", tokens[*index]);
+return Err(String::from("Declaration statements must being with 'int' keyword"));}
   }
 
   match tokens[*index] {
@@ -563,10 +605,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
 
-  match tokens[*index] {
-  Token::Semicolon => {*index += 1;}
-  _ => {return Err(String::from("Statements must end with a semicolon"));}
-  }
+  // match tokens[*index] {
+  // Token::Semicolon => {*index += 1;}
+  // _ => {
+  //   return Err(String::from("Statements must end with a semicolon"));}
+  // }
 
   return Ok(());
 }
@@ -607,7 +650,7 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
 
   match tokens[*index] {
   Token::Semicolon => {*index += 1;}
-  _ => {return Err(String::from("Statement is missing the '=' operator"));}
+  _ => {return Err(String::from("Missing semicolon"));}
   }
 
   return Ok(());
@@ -748,38 +791,96 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
 
 // a term is either a Number or an Identifier.
 
-//incomplete
+//incomplete 
 fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
 
-  Token::Ident(_) => {
+    Token::Num(_) => {
       *index += 1;
-      return Ok(());
-  }
+      Ok(())
+    }
 
-  Token::Num(_) => {
+    Token::LeftParen => {
       *index += 1;
-      return Ok(());
-  }
-
-  Token::LeftParen => {
-      *index += 1;
-      match parse_expression(tokens, index) {
-      Ok(()) => {},
-      Err(e) => {return Err(e);}
+      
+      match parse_expression(tokens, index){
+        Ok(()) => {},
+        Err(e) => {return Err(e);}
       }
 
-      match tokens[*index] {
-      Token::RightParen => {*index += 1;}
-      _ => { return Err(String::from("missing right parenthesis ')'")); }
+      match tokens[*index]{
+        Token::RightParen => {
+          *index += 1;
+          Ok(())
+        }
+        _ => {
+          return Err(String::from("Expected ')"));
+        }
       }
-      return Ok(());
-  }
-  
-  _ => {
-      return Err(String::from("missing expression term."));
-  }
 
+    }
+
+
+    Token::Ident(_) => {
+      *index += 1;
+      if matches!(tokens[*index], Token::LeftParen) {
+        *index += 1;
+        
+        while !matches!(tokens[*index], Token::RightParen){
+          match parse_expression(tokens, index){
+            Ok(()) => {},
+            Err(e) => {return Err(e);}
+          }
+
+          match tokens[*index]{
+            Token::Comma => {
+              *index += 1;
+            }
+            Token::RightParen => {
+              break;
+            }
+            _ => {
+              return Err(String::from("Expected ',' or ')'"));
+            }
+          }
+        }
+        match tokens[*index]{
+          Token::RightParen => {
+            *index += 1;
+            Ok(())
+          }
+          _ => {
+            return Err(String::from("Expected ')"));
+          }
+        }
+
+      }
+
+      else if matches!(tokens[*index], Token::LeftBracket){
+        *index += 1;
+
+        match parse_expression(tokens, index){
+          Ok(()) => {},
+          Err(e) => {return Err(e);}
+        }
+
+        match tokens[*index]{
+          Token::RightBracket => {
+            *index += 1;
+            Ok(())
+          }
+          _ => {return Err(String::from("Expected ']'"));}
+        }
+      }
+
+
+      else{ Ok(()) }
+    }
+    _ => {
+      println!("Current token: {:?}", tokens[*index]);
+      return Err(String::from("Invalid Expression"));
+    }
+    
   }
 }
 
@@ -787,20 +888,137 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
 
 fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
+    Token::While => {
+      *index += 1;
+    }
+    _ => {return Err(String::from("parse while statement incomplete"));}
+    
+  }
+
+  match parse_boolean_expression(tokens, index) {
+    Ok(()) => {},
+    Err(e) => {return Err(e);}
+  }
+
+  match tokens[*index] {
+    Token::LeftCurly => {
+      *index += 1;
+    }
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
+
+  while !matches!(tokens[*index], Token::RightCurly) {
+    match parse_statement(tokens, index) {
+      Ok(()) => {},
+      Err(e) => {return Err(e);}
+    }
+  }
+
+  match tokens[*index] {
+    Token::RightCurly => {
+      *index += 1;
+    }
+    _ => {return Err(String::from("parse while statement incomplete"));}
+  }
+
+  Ok(())
 }
 
 fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
-    _ => {return Err(String::from("parse while statement incomplete"));}
+    Token::If => {
+      *index += 1;
+    }
+    _ => {return Err(String::from("parse if statement incomplete"));}
   }
+
+  match parse_boolean_expression(tokens, index) {
+    Ok(()) => {},
+    Err(e) => {return Err(e);} 
+  }
+
+  match tokens[*index] {
+    Token::LeftCurly => {
+      *index += 1; 
+    }
+    _ => {return Err(String::from("expected '{'"));}
+  }
+
+  while !matches!(tokens[*index], Token::RightCurly) {
+    match parse_statement(tokens, index) {
+      Ok(()) => {},
+      Err(e) => {return Err(e);}
+    }
+  }
+
+  match tokens[*index] { 
+    Token::RightCurly => {
+      *index += 1;
+    }
+    _ => {return Err(String::from("expected '}'"));}
+  }
+
+  if matches!(tokens[*index], Token::Else) {
+    *index += 1;
+    match tokens[*index] {
+      Token::LeftCurly => {
+        *index += 1;
+      }
+      _ => {return Err(String::from("expected '{'"));}
+    }
+    while !matches!(tokens[*index], Token::RightCurly) {
+      match parse_statement(tokens, index) {
+        Ok(()) => {},
+        Err(e) => {return Err(e);}
+      }
+    }
+
+    match tokens[*index] {
+      Token::RightCurly => {
+        *index += 1;
+        Ok(())
+      }
+      _ => {return Err(String::from("expected '}'"));}
+    }
+  }
+
+  else {Ok(())}
+
 }
 
 fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
-  match tokens[*index] {
-    _ => {return Err(String::from("parse while statement incomplete"));}
+  match parse_expression(tokens, index) {
+    Ok(()) => {},
+    _ => {return Err(String::from("Invalid expression"));}
   }
+  match tokens[*index] {
+    Token::Less => {
+      *index += 1;
+    }
+    Token::Greater => {
+      *index += 1;
+    }
+    Token::LessEqual => {
+      *index += 1;
+    }
+    Token::GreaterEqual => {
+      *index += 1;
+    }
+    Token::NotEqual => {
+      *index += 1;
+    }
+    Token::Equality => {
+      *index += 1;
+    }
+    _ => {return Err(String::from("Invalid boolean expression"));}
+  }
+
+  match parse_expression(tokens, index) {
+    Ok(()) => {},
+    _ => {return Err(String::from("Invalid boolean expression"));}
+  }
+
+  Ok(())
 }
 
 // writing tests!
