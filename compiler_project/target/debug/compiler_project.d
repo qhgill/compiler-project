@@ -1,1 +1,1 @@
-/home/csmajs/cmill100/teh-tarik-compiler-qgill-and-cmill/compiler_project/target/debug/compiler_project: /home/csmajs/cmill100/teh-tarik-compiler-qgill-and-cmill/compiler_project/src/main.rs
+/home/csmajs/cmill100/teh-tarik-compiler-qgill-and-cmill/compiler_project/target/debug/compiler_project: /home/csmajs/cmill100/teh-tarik-compiler-qgill-and-cmill/compiler_project/src/interpreter.rs /home/csmajs/cmill100/teh-tarik-compiler-qgill-and-cmill/compiler_project/src/main.rs

@@ -7,7 +7,6 @@
 use std::env;
 // used to interact with the file system
 use std::fs;
-
 // fn main() {
 
 //     // Let us get commandline arguments and store them in a Vec<String>
@@ -63,6 +62,7 @@ use std::fs;
 //     }
 
 // }
+mod interpreter;
 
 fn main() {
   // get commandline arguments.
@@ -108,8 +108,9 @@ fn main() {
   let mut index: usize = 0;
   match parse_program(&tokens, &mut index) {
 
-  Ok(()) => {
+  Ok(generated_code) => {
       println!("Program Parsed Successfully.");
+      interpreter::execute_ir(&generated_code);
   }
 
   Err(message) => {
@@ -417,7 +418,8 @@ fn create_identifier(code: &str) -> Token {
 
 // parse programs with multiple functions
 // loop over everything, outputting generated code.
-fn parse_program(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_program(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+  let ir_code: String = String::from("");
   assert!(tokens.len() >= 1 && matches!(tokens[tokens.len() - 1], Token::End));
   while !at_end(tokens, *index) {
     match parse_function(tokens, index) {
@@ -425,7 +427,7 @@ fn parse_program(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
     Err(e) => { return Err(e); }
     }
   }
-  return Ok(());
+  return Ok(ir_code);
 }
 
 fn at_end(tokens: &Vec<Token>, index: usize) -> bool {
@@ -1093,4 +1095,6 @@ mod tests {
       assert!(matches!(parse_statement(&tokens, &mut 0), Err(_)));
 
   }
+
+
 }
