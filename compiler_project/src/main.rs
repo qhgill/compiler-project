@@ -108,10 +108,13 @@ fn main() {
   let mut index: usize = 0;
   match parse_program(&tokens, &mut index) {
 
-  Ok(generated_code) => {
-      println!("Program Parsed Successfully.");
-      interpreter::execute_ir(&generated_code);
-  }
+   Ok(code) => {
+        println!("Program Parsed Successfully.");
+        println!("--------------------------------------------");
+        println!("{code}");
+        println!("--------------------------------------------");
+        interpreter::execute_ir(&code);
+    }
 
   Err(message) => {
       println!("**Error**");
@@ -184,7 +187,10 @@ enum Token {
 //     Ok(the_result),
 //     Err(the_error),
 // }
-
+struct Expression {
+  code: String,
+  name: String,
+}
 
 // This is a lexer that parses numbers and math operations
 fn lex(code: &str) -> Result<Vec<Token>, String> {
@@ -419,15 +425,17 @@ fn create_identifier(code: &str) -> Token {
 // parse programs with multiple functions
 // loop over everything, outputting generated code.
 fn parse_program(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
-  let ir_code: String = String::from("");
   assert!(tokens.len() >= 1 && matches!(tokens[tokens.len() - 1], Token::End));
+  let mut code = String::new();
   while !at_end(tokens, *index) {
     match parse_function(tokens, index) {
-    Ok(()) => {}
+    Ok(function_code) => {
+      code += &function_code; 
+    }
     Err(e) => { return Err(e); }
     }
   }
-  return Ok(ir_code);
+  return Ok(code);
 }
 
 fn at_end(tokens: &Vec<Token>, index: usize) -> bool {
@@ -435,6 +443,15 @@ match tokens[index] {
 Token::End => { true }
 _ => { false }
 }
+}
+
+static mut VAR_NUM: i64 = 0;
+
+fn create_temp() -> String {
+    unsafe {
+        VAR_NUM += 1;
+        format!("_temp{}", VAR_NUM)
+    }
 }
 
 // parse function such as:
@@ -445,15 +462,24 @@ _ => { false }
 // a loop is done to handle statements.
 
 //untested
-fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+
+fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
   
+  //%func main()
+  //%endfunc
+
+
   match tokens[*index] {
   Token::Func => { *index += 1; }
   _ => { return Err(String::from("functions must begin with func")); }
   }
 
-  match tokens[*index] {
-  Token::Ident(_) => { *index += 1; }
+  let mut function_code: String;
+
+  match tokens[*index] { 
+  Token::Ident(ident) => { 
+    function_code += &format!("% func {ident}\n");
+    *index += 1; }
   _  => { return Err(String::from("functions must have a function identifier"));}
   }
 
@@ -466,7 +492,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
   while !matches!(tokens[*index], Token::RightParen) {
 
     match parse_declaration_statement(tokens, index) {
-    Ok(()) => {}
+    Ok(String::new()) => {} //temporary empty string
     Err(e) => {return Err(e);}
     }
 
@@ -503,12 +529,13 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-
-      match parse_statement(tokens, index) {
-      Ok(()) => {}
-      Err(e) => {return Err(e);}
-      }
-  }
+        match parse_statement(tokens, index) {
+        Ok(statement_code) => {
+            function_code += &statement_code;
+        }
+        Err(e) => {return Err(e);}
+        }
+    }
 
 
   match tokens[*index] {
@@ -516,7 +543,8 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
   _ => { return Err(String::from("expected '}'"));}
   }
 
-  return Ok(());
+  function_code += "%endfunc";
+  return Ok(function_code);
 }
 
 // parsing a statement such as:
@@ -528,18 +556,18 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> 
 // returns epsilon if '}'
 
 //untested
-fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
   match tokens[*index] {
     Token::Int => {      
       match parse_declaration_statement(tokens, index) {
-        Ok(()) => {}
+        Ok(String::new()) => {} //temporary empty string
         Err(e) => return Err(e),
       }
 
       match tokens[*index]{
         Token::Semicolon => {
           *index += 1;
-          Ok(())
+          Ok(String::new()) => {} //temporary empty string
         }
         _ => {return Err(String::from("Statements must end with a semicolon"));}
       }
@@ -551,7 +579,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String>
       match tokens[*index] {
         Token::Semicolon => {
           *index += 1;
-          Ok(())
+          Ok(String::new()) => {} //temporary empty string
         }
         _ => {
           println!("Current token: {:?}", tokens[*index]);
@@ -564,7 +592,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String>
       match tokens[*index] {
         Token::Semicolon => {
           *index += 1;
-          Ok(())
+          Ok(String::new()) => {} //temporary empty string
         }
         _ => {
           println!("Current token: {:?}", tokens[*index]);
@@ -585,7 +613,9 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String>
 }
 
 //untested
-fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+  let statement: String;
+  
   match tokens[*index] {
   Token::Int => {*index += 1;}
   _ => {
@@ -607,7 +637,10 @@ return Err(String::from("Declaration statements must being with 'int' keyword"))
     }
 
     match tokens[*index] {
-      Token::Ident(_) => {*index += 1;}
+      Token::Ident(ident) => {
+        statement = format!("%int {ident}\n");
+        *index += 1;
+      }
       _ => {return Err(String::from("Declarations must have an identifier"));}
     }
   }
@@ -621,13 +654,19 @@ return Err(String::from("Declaration statements must being with 'int' keyword"))
   //   return Err(String::from("Statements must end with a semicolon"));}
   // }
 
-  return Ok(());
+  return Ok(statement);
 }
 
 //untested
-fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+  let mut statement: String;
+  let dest: String;
+  
   match tokens[*index] {
-  Token::Ident(_) => {*index += 1;}
+  Token::Ident(identifier) => {
+    dest = identifier.clone();
+    *index += 1;
+  }
   _ => {return Err(String::from("Assignment statements must being with an identifier"));}
   }
 
@@ -654,7 +693,11 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
   }
 
   match parse_expression(tokens, index) {
-  Ok(()) => {},
+  Ok(expression) => {
+    let src = expression.name;
+    statement = expression.code;
+    statement += &format!("%mov {dest}, {src}\n");
+  },
   Err(e) => {return Err(e);}
   }
 
@@ -663,17 +706,17 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
   _ => {return Err(String::from("Missing semicolon"));}
   }
 
-  return Ok(());
+  return Ok(statement);
 }
 
-fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
   match tokens[*index] {
   Token::Return => {*index += 1;}
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
   }
 
   match parse_expression(tokens, index) {
-  Ok(()) => {},
+  Ok(_) => {},
   Err(e) => {return Err(e);}
   }
 
@@ -682,17 +725,18 @@ fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), 
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
 
-  return Ok(());
+  //todo!()
 }
 
-fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+  let expression: Expression;
   match tokens[*index] {
   Token::Print=> {*index += 1;}
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
   }
 
   match parse_expression(tokens, index) {
-  Ok(()) => {},
+  Ok(expr) => { expression = expr; },
   Err(e) => {return Err(e);}
   }
 
@@ -701,10 +745,12 @@ fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), S
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
 
-  return Ok(());
+  let mut statement = expression.code;
+  statement += &format!("%out {}\n", expression.name);
+  return Ok(statement);
 }
 
-fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
   match tokens[*index] {
   Token::Read => {*index += 1;}
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
@@ -719,13 +765,17 @@ fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<(), St
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
 
-  return Ok(());
+  //todo!();
+  return Ok(String::new()) //temporary empty string
 }
 
 // parsing complex expressions such as: "a + b - (c * d) / (f + g - 8);
-fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, String> {
+  let mut expression: Expression;
   match parse_multiply_expression(tokens, index) {
-  Ok(()) => {},
+  Ok(expr) => {
+    expression = expr;
+  },
   Err(e) => {return Err(e);}
   }
   loop {
@@ -734,7 +784,15 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String
      Token::Plus => {
          *index += 1;
          match parse_multiply_expression(tokens, index) {
-         Ok(()) => {},
+         Ok(expr2) => {
+               let src1 = expression.name;
+               let src2 = expr2.name;
+               let dest = create_temp();
+               expression.code += &expr2.code;
+               expression.code += &format!("%int {dest}\n");
+               expression.code += &format!("%add {dest}, {src1}, {src2}\n");
+               expression.name = dest;
+           },
          Err(e) => {return Err(e);}
          }
      }
@@ -742,7 +800,15 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String
      Token::Subtract => {
          *index += 1;
          match parse_multiply_expression(tokens, index) {
-         Ok(()) => {},
+         Ok(expr2) => {
+               let src1 = expression.name;
+               let src2 = expr2.name;
+               let dest = create_temp();
+               expression.code += &expr2.code;
+               expression.code += &format!("%int {dest}\n");
+               expression.code += &format!("%add {dest}, {src1}, {src2}\n");
+               expression.name = dest;
+           },
          Err(e) => {return Err(e);}
          }
      }
@@ -754,12 +820,15 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String
      };
   }
 
-  return Ok(());
+  return Ok(expression);
 }
 
 fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
+  let mut expression: Expression;
   match parse_term(tokens, index) {
-  Ok(()) => {},
+  Ok(expr) => {
+    expression = expr;
+  },
   Err(e) => {return Err(e);}
   }
   loop {
@@ -767,7 +836,15 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
      Token::Multiply => {
         *index += 1;
         match parse_term(tokens, index) {
-        Ok(()) => {},
+        Ok(expr2) => {
+              let src1 = expression.name;
+              let src2 = expr2.name;
+              let dest = create_temp();
+              expression.code += &expr2.code;
+              expression.code += &format!("%int {dest}\n");
+              expression.code += &format!("%mult {dest}, {src1}, {src2}\n");
+              expression.name = dest;
+          },
         Err(e) => {return Err(e);}
         }
      }
@@ -775,7 +852,15 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
      Token::Divide => {
         *index += 1;
         match parse_term(tokens, index) {
-        Ok(()) => {},
+        Ok(expr2) => {
+              let src1 = expression.name;
+              let src2 = expr2.name;
+              let dest = create_temp();
+              expression.code += &expr2.code;
+              expression.code += &format!("%int {dest}\n");
+              expression.code += &format!("%div {dest}, {src1}, {src2}\n");
+              expression.name = dest;
+          },
         Err(e) => {return Err(e);}
         }
      }
@@ -783,7 +868,15 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
      Token::Modulus => {
         *index += 1;
         match parse_term(tokens, index) {
-        Ok(()) => {},
+        Ok(expr2) => {
+              let src1 = expression.name;
+              let src2 = expr2.name;
+              let dest = create_temp();
+              expression.code += &expr2.code;
+              expression.code += &format!("%int {dest}\n");
+              expression.code += &format!("%mod {dest}, {src1}, {src2}\n");
+              expression.name = dest;
+          },
         Err(e) => {return Err(e);}
         }
      }
@@ -796,7 +889,7 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
 
   }
 
-  return Ok(());
+  return Ok(expression);
 }
 
 // a term is either a Number or an Identifier.
@@ -805,17 +898,21 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<(
 fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<(), String> {
   match tokens[*index] {
 
-    Token::Num(_) => {
+    Token::Num(number) => {
       *index += 1;
-      Ok(())
+        let expression = Expression {
+          code : String::from(""),
+          name : number.to_string()
+        };
+      return Ok(expression);
     }
 
     Token::LeftParen => {
       *index += 1;
-      
-      match parse_expression(tokens, index){
-        Ok(()) => {},
-        Err(e) => {return Err(e);}
+      let expression: Expression;
+      match parse_expression(tokens, index) {
+      Ok(e) => {expression = e;},
+      Err(e) => {return Err(e);}
       }
 
       match tokens[*index]{
