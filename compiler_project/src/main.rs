@@ -479,7 +479,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
 
   match &tokens[*index] { 
   Token::Ident(ident) => { 
-    function_code += &format!("% func {ident}\n");
+    function_code += &format!("%func {ident}(");
     *index += 1; }
   _  => { return Err(String::from("functions must have a function identifier"));}
   }
@@ -493,7 +493,9 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
   while !matches!(tokens[*index], Token::RightParen) {
 
     match parse_declaration_statement(tokens, index) {
-    Ok(declaration_code) => {}
+    Ok(declaration_code) => {
+      function_code += &declaration_code;
+    }
     Err(e) => {return Err(e);}
     }
 
@@ -510,6 +512,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
           }
           _ => {
             *index += 0;
+            function_code += &format!(", ");
           }
         }
       }
@@ -520,7 +523,10 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
   }
 
   match tokens[*index] {
-  Token::RightParen => { *index += 1; }
+  Token::RightParen => { 
+    *index += 1; 
+    function_code += &format!(")\n");
+  }
   _ => { return Err(String::from("expected ')'"));}
   }
 
@@ -629,11 +635,15 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
     return Err(String::from("Declaration statements must being with 'int' keyword"));}
   }
 
-  match tokens[*index] {
+  match &tokens[*index] {
   Token::LeftBracket => {
+    let mut arrnum = 0;
     *index += 1;
     match tokens[*index] {
-      Token::Num(_) => {*index += 1;}
+      Token::Num(array_size) => {
+        *index += 1;
+        arrnum = array_size;
+      }
       _ => {return Err(String::from("Brackets must contain a number"));}
     }
 
@@ -644,13 +654,16 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
 
     match &tokens[*index] {
       Token::Ident(ident) => {
-        statement = format!("%int {ident}\n");
+        statement = format!("%int[] {ident}, {arrnum}\n");
         *index += 1;
       }
       _ => {return Err(String::from("Declarations must have an identifier"));}
     }
   }
-  Token::Ident(_) => {*index += 1;}
+  Token::Ident(ident) => {
+    *index += 1;
+    statement = format!("%int {ident}\n")
+  }
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
 
@@ -754,7 +767,8 @@ fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
   }
 
   let mut statement = expression.code;
-  statement += &format!("%out {}\n", expression.name);
+  let name = expression.name;
+  statement += &format!("%out {name}\n");
   return Ok(statement);
 }
 
@@ -910,7 +924,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
     code : String::from(""),
     name : String::from("")
   };
-  match tokens[*index] {
+  match &tokens[*index] {
 
     Token::Num(number) => {
       *index += 1;
@@ -920,7 +934,6 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
 
     Token::LeftParen => {
       *index += 1;
-      let expression: Expression;
       match parse_expression(tokens, index) {
       Ok(e) => {expression = e;},
       Err(e) => {return Err(e);}
@@ -938,7 +951,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
     }
 
 
-    Token::Ident(_) => {
+    Token::Ident(ident) => {
       *index += 1;
       if matches!(tokens[*index], Token::LeftParen) {
         *index += 1;
@@ -1005,7 +1018,10 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
       }
 
 
-      else{ return Ok(expression) }
+      else{ 
+        expression.name = ident.to_string();
+        return Ok(expression) 
+      }
     }
     _ => {
       println!("Current token: {:?}", tokens[*index]);
