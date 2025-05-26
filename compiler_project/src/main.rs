@@ -550,7 +550,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
   _ => { return Err(String::from("expected '}'"));}
   }
 
-  function_code += "%endfunc";
+  function_code += "%endfunc\n";
   return Ok(function_code);
 }
 
@@ -569,7 +569,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Str
     Token::Int => {      
       match parse_declaration_statement(tokens, index) {
         Ok(declaration_code) => {
-          statement = declaration_code;
+          statement = declaration_code + &format!("\n");
         } 
         Err(e) => return Err(e),
       }
@@ -662,7 +662,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
   }
   Token::Ident(ident) => {
     *index += 1;
-    statement = format!("%int {ident}\n")
+    statement = format!("%int {ident}")
   }
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
@@ -740,7 +740,11 @@ fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Stri
   }
 
   match parse_expression(tokens, index) {
-  Ok(_) => {},
+  Ok(expression) => {
+    let dest = expression.name;
+    statement = expression.code;
+    statement += &format!("%ret {dest}\n");
+  },
   Err(e) => {return Err(e);}
   }
 
@@ -956,12 +960,16 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
 
     Token::Ident(ident) => {
       *index += 1;
+      let mut funcargs = String::from("");
       if matches!(tokens[*index], Token::LeftParen) {
         *index += 1;
         
         while !matches!(tokens[*index], Token::RightParen){
           match parse_expression(tokens, index){
-            Ok(expr) => {},
+            Ok(expr) => {
+              funcargs += &expr.name;
+              expression.code += &expr.code;
+            },
             Err(e) => {return Err(e);}
           }
 
@@ -973,6 +981,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
                   return Err(String::from("expected expression after comma"))
                 }
                 _ => {
+                  funcargs += &format!(", ");
                   *index += 0;
                 }
               }
@@ -996,6 +1005,8 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
             //   }
             // }
             *index += 1;
+            expression.name = create_temp();
+            expression.code += &format!("%int {0}\n%call {0}, {ident}({funcargs})\n", expression.name);
           }
           _ => {
             return Err(String::from("Expected ')"));
