@@ -679,7 +679,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
 //untested
 fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
   let mut statement: String;
-  let dest: String;
+  let mut dest: String;
   
   match &tokens[*index] {
   Token::Ident(identifier) => {
@@ -693,7 +693,10 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
     Token::LeftBracket => {
       *index += 1;
       match tokens[*index] {
-        Token::Num(_) => {*index += 1;}
+        Token::Num(number) => {
+          *index += 1;
+          dest = format!("[{dest} + {number}]")
+        }
         _ => {return Err(String::from("Brackets must contain a number"));}
       }
   
@@ -1005,7 +1008,11 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
         *index += 1;
 
         match parse_expression(tokens, index){
-          Ok(expr) => {},
+          Ok(expr) => {
+            expression.name = create_temp();
+            expression.code = format!("%int {0}\n", expression.name);
+            expression.code += &format!("%mov {0}, [{ident} + {1}] \n", expression.name, expr.name)
+          },
           Err(e) => {return Err(e);}
         }
 
