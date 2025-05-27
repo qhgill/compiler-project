@@ -106,7 +106,11 @@ fn main() {
   };
 
   let mut index: usize = 0;
-  match parse_program(&tokens, &mut index) {
+  let mut symbol_table = SymbolTable {
+    table: std::collections::HashMap::new(),
+    has_main: false,
+  };
+  match parse_program(&tokens, &mut index, &mut symbol_table) {
 
    Ok(code) => {
         println!("Program Parsed Successfully.");
@@ -424,11 +428,11 @@ fn create_identifier(code: &str) -> Token {
 
 // parse programs with multiple functions
 // loop over everything, outputting generated code.
-fn parse_program(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_program(tokens: &Vec<Token>, index: &mut usize, symbol_table:&mut SymbolTable) -> Result<String, String> {
   assert!(tokens.len() >= 1 && matches!(tokens[tokens.len() - 1], Token::End));
   let mut code = String::new();
   while !at_end(tokens, *index) {
-    match parse_function(tokens, index) {
+    match parse_function(tokens, index, &mut symbol_table) {
     Ok(function_code) => {
       code += &function_code; 
     }
@@ -463,7 +467,18 @@ fn create_temp() -> String {
 
 //untested
 
-fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+pub enum SymbolType {
+    Int,
+    IntArray(i32), 
+    Function {defined: bool}
+}
+
+pub struct SymbolTable {
+  table: std::collections::HashMap<String, SymbolType>,
+  has_main: bool 
+}
+
+fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   
   //%func main()
   //%endfunc
@@ -479,6 +494,13 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
 
   match &tokens[*index] { 
   Token::Ident(ident) => { 
+    if symbol_table.table.contains_key(ident) {
+      return Err(format!("Function {ident} is already defined"));
+    }
+    if ident == "main" {
+      symbol_table.has_main = true;
+    }
+    symbol_table.table.insert(ident.clone(), SymbolType::Function { defined: false });
     function_code += &format!("%func {ident}(");
     *index += 1; }
   _  => { return Err(String::from("functions must have a function identifier"));}
@@ -492,7 +514,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
 
   while !matches!(tokens[*index], Token::RightParen) {
 
-    match parse_declaration_statement(tokens, index) {
+    match parse_declaration_statement(tokens, index, &mut symbol_table) {
     Ok(declaration_code) => {
       function_code += &declaration_code;
     }
@@ -536,7 +558,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-        match parse_statement(tokens, index) {
+        match parse_statement(tokens, index, &mut symbol_table) {
         Ok(statement_code) => {
             function_code += &statement_code;
         }
@@ -563,11 +585,11 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Stri
 // returns epsilon if '}'
 
 //untested
-fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let statement: String;
   match tokens[*index] {
     Token::Int => {      
-      match parse_declaration_statement(tokens, index) {
+      match parse_declaration_statement(tokens, index, &mut symbol_table) {
         Ok(declaration_code) => {
           statement = declaration_code + &format!("\n");
         } 
@@ -612,8 +634,8 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Str
         }
       }
     }
-    Token::While => parse_while_statement(tokens, index),
-    Token::If => parse_if_statement(tokens, index),
+    Token::While => parse_while_statement(tokens, index, &mut symbol_table),
+    Token::If => parse_if_statement(tokens, index, &mut symbol_table),
     Token::Return => parse_return_statement(tokens, index),
     Token::Print => parse_print_statement(tokens, index),
     Token::Read => parse_read_statement(tokens, index),
@@ -625,7 +647,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, Str
 }
 
 
-fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -654,6 +676,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
 
     match &tokens[*index] {
       Token::Ident(ident) => {
+        if symbol_table.table.contains_key(ident) {
+          return Err(format!("Variable {ident} is already defined"));
+        }
+        symbol_table.table.insert(ident.clone(), SymbolType::IntArray(arrnum));
+
         statement = format!("%int[] {ident}, {arrnum}\n");
         *index += 1;
       }
@@ -661,6 +688,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize) -> Result
     }
   }
   Token::Ident(ident) => {
+
+    if symbol_table.table.contains_key(ident) {
+      return Err(format!("Variable {ident} is already defined"));
+    }
+    
     *index += 1;
     statement = format!("%int {ident}")
   }
@@ -1052,7 +1084,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
 
 //missing while statement, if statement, boolean expression, 
 
-fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -1076,7 +1108,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index) {
+    match parse_statement(tokens, index, &mut symbol_table) {
       Ok(statement) => {},
       Err(e) => {return Err(e);}
     }
@@ -1092,7 +1124,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
   Ok(statement)
 }
 
-fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -1115,7 +1147,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, 
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index) {
+    match parse_statement(tokens, index, &mut symbol_table) {
       Ok(statement) => {},
       Err(e) => {return Err(e);}
     }
@@ -1137,7 +1169,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, 
       _ => {return Err(String::from("expected '{'"));}
     }
     while !matches!(tokens[*index], Token::RightCurly) {
-      match parse_statement(tokens, index) {
+      match parse_statement(tokens, index, &mut symbol_table) {
         Ok(statement) => {},
         Err(e) => {return Err(e);}
       }
