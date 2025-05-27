@@ -439,6 +439,9 @@ fn parse_program(tokens: &Vec<Token>, index: &mut usize, symbol_table:&mut Symbo
     Err(e) => { return Err(e); }
     }
   }
+  if(symbol_table.has_main == false) {
+    return Err(String::from("Main function is not defined"));
+  }
   return Ok(code);
 }
 
@@ -605,7 +608,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
       }
 
     }
-    Token::Ident(_) => parse_assignment_statement(tokens, index),
+    Token::Ident(_) => parse_assignment_statement(tokens, index, symbol_table),
     Token::Break => {
       *index += 1;
       match tokens[*index] {
@@ -663,6 +666,9 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
     *index += 1;
     match tokens[*index] {
       Token::Num(array_size) => {
+        if(array_size <= 0) {
+          return Err(String::from("Array size must be greater than 0"));
+        }
         *index += 1;
         arrnum = array_size;
       }
@@ -709,13 +715,28 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
 }
 
 //untested
-fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   let mut dest: String;
+  let mut dest_type: String;
   
   match &tokens[*index] {
   Token::Ident(identifier) => {
     dest = identifier.clone();
+    match symbol_table.table.get(identifier){
+      Some(SymbolType::Int) => {
+        dest_type = String::from("int");
+      }
+      Some(SymbolType::IntArray(_)) => {
+        dest_type = String::from("array");
+      }
+      Some(SymbolType::Function {defined: _}) => {
+        return Err(format!("Cannot assign to function {identifier}"));
+      }
+      None => {
+        return Err(format!("Variable {identifier} is not defined"));
+      }
+    }
     *index += 1;
   }
   _ => {return Err(String::from("Assignment statements must being with an identifier"));}
@@ -723,6 +744,9 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
 
   match tokens[*index] {
     Token::LeftBracket => {
+      if dest_type != "array" {
+        return Err(format!("Type mismatch: using a scalar integer variable as an array of integers"));
+      }
       *index += 1;
       match tokens[*index] {
         Token::Num(number) => {
@@ -742,7 +766,12 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<
         _ => {return Err(String::from("Statement is missing the '=' operator"));}
       }
     }
-  Token::Assign => {*index += 1;}
+  Token::Assign => {
+    if dest_type != "int" {
+      return Err(format!("Type mismatch: using an array of integers as a scalar integer"));
+    }
+    *index += 1;
+  }
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
 
