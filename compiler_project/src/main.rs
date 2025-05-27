@@ -196,6 +196,7 @@ struct Expression {
   name: String,
 }
 
+
 // This is a lexer that parses numbers and math operations
 fn lex(code: &str) -> Result<Vec<Token>, String> {
   let bytes = code.as_bytes();
@@ -481,6 +482,12 @@ pub struct SymbolTable {
   has_main: bool 
 }
 
+struct Declaration {
+  ident: String,
+  code: String,
+  symtype: SymbolType,
+}
+
 fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   
   //%func main()
@@ -519,7 +526,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
 
     match parse_declaration_statement(tokens, index, symbol_table) {
     Ok(declaration_code) => {
-      function_code += &declaration_code;
+      function_code += &declaration_code.code;
     }
     Err(e) => {return Err(e);}
     }
@@ -594,7 +601,9 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
     Token::Int => {      
       match parse_declaration_statement(tokens, index, symbol_table) {
         Ok(declaration_code) => {
-          statement = declaration_code + &format!("\n");
+          statement = declaration_code.code + &format!("\n");
+          symbol_table.table.insert(declaration_code.ident, declaration_code.symtype);
+          //BOOKMARK2
         } 
         Err(e) => return Err(e),
       }
@@ -650,9 +659,14 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
 }
 
 
-fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
-  let mut statement: String;
-  statement = String::from("");
+fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<Declaration, String> {
+  let mut statement = Declaration{
+    ident: String::from(""),
+    symtype: SymbolType::Int,
+    code: String::from(""),
+  };
+
+  statement.code = String::from("");
   match tokens[*index] {
   Token::Int => {*index += 1;}
   _ => {
@@ -685,9 +699,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
         if symbol_table.table.contains_key(ident) {
           return Err(format!("Variable {ident} is already defined"));
         }
-        symbol_table.table.insert(ident.clone(), SymbolType::IntArray(arrnum));
-
-        statement = format!("%int[] {ident}, {arrnum}\n");
+        statement.ident = ident.clone();
+        statement.symtype = SymbolType::IntArray(arrnum);
+        //symbol_table.table.insert(ident.clone(), SymbolType::IntArray(arrnum));
+        
+        statement.code = format!("%int[] {ident}, {arrnum}\n");
         *index += 1;
       }
       _ => {return Err(String::from("Declarations must have an identifier"));}
@@ -698,9 +714,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
     if symbol_table.table.contains_key(ident) {
       return Err(format!("Variable {ident} is already defined"));
     }
-    symbol_table.table.insert(ident.clone(), SymbolType::Int);
+    statement.ident = ident.clone();
+    statement.symtype = SymbolType::Int;
+    //symbol_table.table.insert(ident.clone(), SymbolType::Int);
     *index += 1;
-    statement = format!("%int {ident}")
+    statement.code = format!("%int {ident}")
   }
   _ => {return Err(String::from("Declarations must have an identifier"));}
   }
@@ -1028,6 +1046,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
         while !matches!(tokens[*index], Token::RightParen){
           match parse_expression(tokens, index){
             Ok(expr) => {
+              //BOOKMARK1
               funcargs += &expr.name;
               expression.code += &expr.code;
             },
