@@ -432,7 +432,7 @@ fn parse_program(tokens: &Vec<Token>, index: &mut usize, symbol_table:&mut Symbo
   assert!(tokens.len() >= 1 && matches!(tokens[tokens.len() - 1], Token::End));
   let mut code = String::new();
   while !at_end(tokens, *index) {
-    match parse_function(tokens, index, &mut symbol_table) {
+    match parse_function(tokens, index, symbol_table) {
     Ok(function_code) => {
       code += &function_code; 
     }
@@ -514,7 +514,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
 
   while !matches!(tokens[*index], Token::RightParen) {
 
-    match parse_declaration_statement(tokens, index, &mut symbol_table) {
+    match parse_declaration_statement(tokens, index, symbol_table) {
     Ok(declaration_code) => {
       function_code += &declaration_code;
     }
@@ -558,7 +558,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-        match parse_statement(tokens, index, &mut symbol_table) {
+        match parse_statement(tokens, index, symbol_table) {
         Ok(statement_code) => {
             function_code += &statement_code;
         }
@@ -589,7 +589,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
   let statement: String;
   match tokens[*index] {
     Token::Int => {      
-      match parse_declaration_statement(tokens, index, &mut symbol_table) {
+      match parse_declaration_statement(tokens, index, symbol_table) {
         Ok(declaration_code) => {
           statement = declaration_code + &format!("\n");
         } 
@@ -634,8 +634,8 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
         }
       }
     }
-    Token::While => parse_while_statement(tokens, index, &mut symbol_table),
-    Token::If => parse_if_statement(tokens, index, &mut symbol_table),
+    Token::While => parse_while_statement(tokens, index, symbol_table),
+    Token::If => parse_if_statement(tokens, index, symbol_table),
     Token::Return => parse_return_statement(tokens, index),
     Token::Print => parse_print_statement(tokens, index),
     Token::Read => parse_read_statement(tokens, index),
@@ -692,7 +692,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
     if symbol_table.table.contains_key(ident) {
       return Err(format!("Variable {ident} is already defined"));
     }
-    
+    symbol_table.table.insert(ident.clone(), SymbolType::Int);
     *index += 1;
     statement = format!("%int {ident}")
   }
@@ -1108,7 +1108,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index, &mut symbol_table) {
+    match parse_statement(tokens, index, symbol_table) {
       Ok(statement) => {},
       Err(e) => {return Err(e);}
     }
@@ -1147,7 +1147,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index, &mut symbol_table) {
+    match parse_statement(tokens, index, symbol_table) {
       Ok(statement) => {},
       Err(e) => {return Err(e);}
     }
@@ -1169,7 +1169,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
       _ => {return Err(String::from("expected '{'"));}
     }
     while !matches!(tokens[*index], Token::RightCurly) {
-      match parse_statement(tokens, index, &mut symbol_table) {
+      match parse_statement(tokens, index, symbol_table) {
         Ok(statement) => {},
         Err(e) => {return Err(e);}
       }
