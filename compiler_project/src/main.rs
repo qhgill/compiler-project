@@ -648,9 +648,9 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
     }
     Token::While => parse_while_statement(tokens, index, symbol_table),
     Token::If => parse_if_statement(tokens, index, symbol_table),
-    Token::Return => parse_return_statement(tokens, index),
-    Token::Print => parse_print_statement(tokens, index),
-    Token::Read => parse_read_statement(tokens, index),
+    Token::Return => parse_return_statement(tokens, index, symbol_table),
+    Token::Print => parse_print_statement(tokens, index, symbol_table),
+    Token::Read => parse_read_statement(tokens, index, symbol_table),
     _ => {
       println!("Current token: {:?}", tokens[*index]);
       Err(String::from("invalid statement"))
@@ -793,7 +793,7 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize, symbol_tab
   _ => {return Err(String::from("Statement is missing the '=' operator"));}
   }
 
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
   Ok(expression) => {
     let src = expression.name;
     statement = expression.code;
@@ -810,7 +810,7 @@ fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize, symbol_tab
   return Ok(statement);
 }
 
-fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -818,7 +818,7 @@ fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Stri
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
   }
 
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
   Ok(expression) => {
     let dest = expression.name;
     statement = expression.code;
@@ -835,14 +835,14 @@ fn parse_return_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Stri
   //todo!()
 }
 
-fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let expression: Expression;
   match tokens[*index] {
   Token::Print=> {*index += 1;}
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
   }
 
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
   Ok(expr) => { expression = expr; },
   Err(e) => {return Err(e);}
   }
@@ -858,14 +858,14 @@ fn parse_print_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
   return Ok(statement);
 }
 
-fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   match tokens[*index] {
   Token::Read => {*index += 1;}
   _ => {return Err(String::from("Return statements must being with a return keyword"));}
   }
 
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
     Ok(expr) => {},
     Err(e) => {return Err(e);}
   }
@@ -880,9 +880,9 @@ fn parse_read_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String
 }
 
 // parsing complex expressions such as: "a + b - (c * d) / (f + g - 8);
-fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, String> {
+fn parse_expression(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<Expression, String> {
   let mut expression: Expression;
-  match parse_multiply_expression(tokens, index) {
+  match parse_multiply_expression(tokens, index, symbol_table) {
   Ok(expr) => {
     expression = expr;
   },
@@ -893,7 +893,7 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression
 
      Token::Plus => {
          *index += 1;
-         match parse_multiply_expression(tokens, index) {
+         match parse_multiply_expression(tokens, index, symbol_table) {
          Ok(expr2) => {
                let src1 = expression.name;
                let src2 = expr2.name;
@@ -909,7 +909,7 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression
 
      Token::Subtract => {
          *index += 1;
-         match parse_multiply_expression(tokens, index) {
+         match parse_multiply_expression(tokens, index, symbol_table) {
          Ok(expr2) => {
                let src1 = expression.name;
                let src2 = expr2.name;
@@ -933,9 +933,9 @@ fn parse_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression
   return Ok(expression);
 }
 
-fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, String> {
+fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<Expression, String> {
   let mut expression: Expression;
-  match parse_term(tokens, index) {
+  match parse_term(tokens, index, symbol_table) {
   Ok(expr) => {
     expression = expr;
   },
@@ -945,7 +945,7 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<E
      match tokens[*index] {
      Token::Multiply => {
         *index += 1;
-        match parse_term(tokens, index) {
+        match parse_term(tokens, index, symbol_table) {
         Ok(expr2) => {
               let src1 = expression.name;
               let src2 = expr2.name;
@@ -961,7 +961,7 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<E
 
      Token::Divide => {
         *index += 1;
-        match parse_term(tokens, index) {
+        match parse_term(tokens, index, symbol_table) {
         Ok(expr2) => {
               let src1 = expression.name;
               let src2 = expr2.name;
@@ -977,7 +977,7 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<E
 
      Token::Modulus => {
         *index += 1;
-        match parse_term(tokens, index) {
+        match parse_term(tokens, index, symbol_table) {
         Ok(expr2) => {
               let src1 = expression.name;
               let src2 = expr2.name;
@@ -1005,7 +1005,7 @@ fn parse_multiply_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<E
 // a term is either a Number or an Identifier.
 
 //incomplete 
-fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, String> {
+fn parse_term(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<Expression, String> {
   let mut expression = Expression {
     code : String::from(""),
     name : String::from("")
@@ -1020,7 +1020,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
 
     Token::LeftParen => {
       *index += 1;
-      match parse_expression(tokens, index) {
+      match parse_expression(tokens, index, symbol_table) {
       Ok(e) => {expression = e;},
       Err(e) => {return Err(e);}
       }
@@ -1044,7 +1044,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
         *index += 1;
         
         while !matches!(tokens[*index], Token::RightParen){
-          match parse_expression(tokens, index){
+          match parse_expression(tokens, index, symbol_table){
             Ok(expr) => {
               //BOOKMARK1
               funcargs += &expr.name;
@@ -1086,6 +1086,9 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
             // }
             *index += 1;
             expression.name = create_temp();
+            if !symbol_table.table.contains_key(ident){
+              return Err(format!("Function {ident} is not defined"));
+            }
             expression.code += &format!("%int {0}\n%call {0}, {ident}({funcargs})\n", expression.name);
           }
           _ => {
@@ -1098,7 +1101,7 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, Stri
       else if matches!(tokens[*index], Token::LeftBracket){
         *index += 1;
 
-        match parse_expression(tokens, index){
+        match parse_expression(tokens, index, symbol_table){
           Ok(expr) => {
             expression.name = create_temp();
             expression.code = format!("%int {0}\n", expression.name);
@@ -1143,7 +1146,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
     
   }
 
-  match parse_boolean_expression(tokens, index) {
+  match parse_boolean_expression(tokens, index, symbol_table) {
     Ok(expresssion) => {},
     Err(e) => {return Err(e);}
   }
@@ -1182,7 +1185,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     _ => {return Err(String::from("parse if statement incomplete"));}
   }
 
-  match parse_boolean_expression(tokens, index) {
+  match parse_boolean_expression(tokens, index, symbol_table) {
     Ok(expr) => {},
     Err(e) => {return Err(e);} 
   }
@@ -1236,10 +1239,10 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
 
 }
 
-fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
+fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut expression: String;
   expression = String::from("");
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
     Ok(expr) => {},
     _ => {return Err(String::from("Invalid expression"));}
   }
@@ -1265,7 +1268,7 @@ fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<St
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
 
-  match parse_expression(tokens, index) {
+  match parse_expression(tokens, index, symbol_table) {
     Ok(expr) => {},
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
