@@ -1063,10 +1063,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
     
   }
 
-  match parse_boolean_expression(tokens, index) {
-    Ok(expresssion) => {},
-    Err(e) => {return Err(e);}
-  }
+  let boolean_expression = parse_boolean_expression(tokens, index)?;
 
   match tokens[*index] {
     Token::LeftCurly => {
@@ -1075,9 +1072,10 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
 
+  let mut while_loop_body = String::from(""); 
   while !matches!(tokens[*index], Token::RightCurly) {
     match parse_statement(tokens, index) {
-      Ok(statement) => {},
+      Ok(statement) => {while_loop_body += &statement;},
       Err(e) => {return Err(e);}
     }
   }
@@ -1088,8 +1086,15 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<Strin
     }
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
+  let mut loop_code = String::from("");
+  loop_code += ":loop_begin\n";
+  loop_code += &boolean_expression.code;
+  loop_code += &format!("%branch_ifn {}, :endloop1\n", boolean_expression.name);
+  loop_code += &while_loop_body;
+  loop_code += "%jmp :loop_begin\n";
+  loop_code += ":endloop1\n";
 
-  Ok(statement)
+  Ok(loop_code)
 }
 
 fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
@@ -1156,39 +1161,62 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize) -> Result<String, 
 
 }
 
-fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<String, String> {
-  let mut expression: String;
-  expression = String::from("");
+fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize) -> Result<Expression, String> {
+  let mut expression: Expression;
+  let expr1;
+  let opcode: &str;
   match parse_expression(tokens, index) {
-    Ok(expr) => {},
+    Ok(expr) => { expr1 = expr;},
     _ => {return Err(String::from("Invalid expression"));}
   }
   match tokens[*index] {
     Token::Less => {
+      opcode = "%lt";
       *index += 1;
     }
     Token::Greater => {
+      opcode = "%gt";
       *index += 1;
     }
     Token::LessEqual => {
+      opcode = "%le";
       *index += 1;
     }
     Token::GreaterEqual => {
+      opcode = "%ge";
       *index += 1;
     }
     Token::NotEqual => {
+      opcode = "%ne";
       *index += 1;
     }
     Token::Equality => {
+      opcode = "%eq";
       *index += 1;
     }
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
 
+  let expr2;
   match parse_expression(tokens, index) {
-    Ok(expr) => {},
+    Ok(expr) => {expr2 = expr;},
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
+
+
+  let dest = create_temp();
+  let src1 = expr1.name;
+  let src2 = expr2.name;  
+  let mut statement = String::from("");
+  statement += &expr1.code;
+  statement += &expr2.code;
+  statement += &format!("%int {dest}\n");
+  statement += &format!("{opcode} {dest}, {src1}, {src2}\n");
+
+  expression = Expression {
+    code: statement,
+    name: dest,
+  };
 
   Ok(expression)
 }
