@@ -462,6 +462,14 @@ fn create_temp() -> String {
     }
 }
 
+static mut LABEL_NUM: i64 = 0;
+
+fn create_label() -> String {
+  unsafe {
+    LABEL_NUM += 1;
+    format!("_label{}", LABEL_NUM)
+  }
+}
 // parse function such as:
 // func main(int a, int b) {
 //    # ... statements here...
@@ -623,7 +631,7 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
       match tokens[*index] {
         Token::Semicolon => {
           *index += 1;
-          statement = String::from(""); //temp empty string
+          statement = String::from(""); 
           return Ok(statement);
         }
         _ => {
@@ -1146,10 +1154,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
     
   }
 
-  match parse_boolean_expression(tokens, index, symbol_table) {
-    Ok(expresssion) => {},
-    Err(e) => {return Err(e);}
-  }
+  let boolean_expression = parse_boolean_expression(tokens, index, symbol_table)?;
 
   match tokens[*index] {
     Token::LeftCurly => {
@@ -1158,9 +1163,10 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
 
+  let mut while_loop_body = String::from(""); 
   while !matches!(tokens[*index], Token::RightCurly) {
     match parse_statement(tokens, index, symbol_table) {
-      Ok(statement) => {},
+      Ok(statement) => {while_loop_body += &statement;},
       Err(e) => {return Err(e);}
     }
   }
@@ -1171,8 +1177,17 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
     }
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
+  let mut loop_code = String::from("");
+  let start_label = create_label();
+  let end_label = create_label();
+  loop_code += &format!(":{}\n", start_label);
+  loop_code += &boolean_expression.code;
+  loop_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, end_label);
+  loop_code += &while_loop_body;
+  loop_code += &format!("%jmp :{}\n", start_label);
+  loop_code += &format!(":{}\n", end_label);
 
-  Ok(statement)
+  Ok(loop_code)
 }
 
 fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
@@ -1185,10 +1200,8 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     _ => {return Err(String::from("parse if statement incomplete"));}
   }
 
-  match parse_boolean_expression(tokens, index, symbol_table) {
-    Ok(expr) => {},
-    Err(e) => {return Err(e);} 
-  }
+  let boolean_expression = parse_boolean_expression(tokens, index, symbol_table)?;
+
 
   match tokens[*index] {
     Token::LeftCurly => {
@@ -1196,10 +1209,10 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     }
     _ => {return Err(String::from("expected '{'"));}
   }
-
+  let mut if_body = String::from("");
   while !matches!(tokens[*index], Token::RightCurly) {
     match parse_statement(tokens, index, symbol_table) {
-      Ok(statement) => {},
+      Ok(statement) => { if_body += &statement },
       Err(e) => {return Err(e);}
     }
   }
@@ -1210,7 +1223,8 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     }
     _ => {return Err(String::from("expected '}'"));}
   }
-
+  let mut else_body = String::from("");
+  let mut if_code = String::from("");
   if matches!(tokens[*index], Token::Else) {
     *index += 1;
     match tokens[*index] {
@@ -1221,7 +1235,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     }
     while !matches!(tokens[*index], Token::RightCurly) {
       match parse_statement(tokens, index, symbol_table) {
-        Ok(statement) => {},
+        Ok(statement) => { else_body += &statement; },
         Err(e) => {return Err(e);}
       }
     }
@@ -1230,48 +1244,89 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
       Token::RightCurly => {
         *index += 1;
         statement = String::from("");
-        Ok(statement)
       }
       _ => {return Err(String::from("expected '}'"));}
+
+    
     }
+    let label = create_label();
+    let end_label = create_label();
+    if_code += &boolean_expression.code;
+    if_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, label);
+    if_code += &if_body;
+    if_code += &format!("%jmp :{}\n", end_label);
+    if_code += &format!(":{}\n", label);
+    if_code += &else_body;
+    if_code += &format!(":{}\n", end_label);
+    Ok(if_code)
   }
-  else {Ok(statement)}
+  else {
+    let label = create_label();
+    if_code += &boolean_expression.code;
+    if_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, label);
+    if_code += &if_body;
+    if_code += &format!(":{}\n", label);
+    Ok(if_code)
+  }
 
 }
 
-fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
-  let mut expression: String;
-  expression = String::from("");
+fn parse_boolean_expression(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<Expression, String> {
+  let mut expression: Expression;
+  let expr1;
+  let opcode: &str;
   match parse_expression(tokens, index, symbol_table) {
-    Ok(expr) => {},
+    Ok(expr) => { expr1 = expr;},
     _ => {return Err(String::from("Invalid expression"));}
   }
   match tokens[*index] {
     Token::Less => {
+      opcode = "%lt";
       *index += 1;
     }
     Token::Greater => {
+      opcode = "%gt";
       *index += 1;
     }
     Token::LessEqual => {
+      opcode = "%le";
       *index += 1;
     }
     Token::GreaterEqual => {
+      opcode = "%ge";
       *index += 1;
     }
     Token::NotEqual => {
+      opcode = "%ne";
       *index += 1;
     }
     Token::Equality => {
+      opcode = "%eq";
       *index += 1;
     }
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
 
+  let expr2;
   match parse_expression(tokens, index, symbol_table) {
-    Ok(expr) => {},
+    Ok(expr) => { expr2 = expr; },
     _ => {return Err(String::from("Invalid boolean expression"));}
   }
+
+
+  let dest = create_temp();
+  let src1 = expr1.name;
+  let src2 = expr2.name;  
+  let mut statement = String::from("");
+  statement += &expr1.code;
+  statement += &expr2.code;
+  statement += &format!("%int {dest}\n");
+  statement += &format!("{opcode} {dest}, {src1}, {src2}\n");
+
+  expression = Expression {
+    code: statement,
+    name: dest,
+  };
 
   Ok(expression)
 }
