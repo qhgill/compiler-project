@@ -63,6 +63,8 @@ use std::fs;
 
 // }
 mod interpreter;
+static mut loop_stack: Vec<String> = Vec::new();
+
 
 fn main() {
   // get commandline arguments.
@@ -638,7 +640,12 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
       match tokens[*index] {
         Token::Semicolon => {
           *index += 1;
-          statement = String::from(""); 
+          let top = unsafe { loop_stack.last().cloned() };
+          let label = top.unwrap_or_else(|| String::from("UNKNOWN"));
+          if label == "UNKNOWN"{
+            return Err(String::from("Break used outside of loop"));
+          }
+          statement = format!("%jmp :end{}\n", label); 
           return Ok(statement);
         }
         _ => {
@@ -652,7 +659,12 @@ fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sy
       match tokens[*index] {
         Token::Semicolon => {
           *index += 1;
-          statement = String::from("");
+          let top = unsafe { loop_stack.last().cloned() };
+          let label = top.unwrap_or_else(|| String::from("UNKNOWN"));
+          if label == "UNKNOWN"{
+            return Err(String::from("Continue used outside of loop"));
+          }
+          statement = format!("%jmp :{}\n", label); 
           return Ok(statement);
         }
         _ => {
@@ -1166,13 +1178,15 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
   }
 
   let boolean_expression = parse_boolean_expression(tokens, index, symbol_table)?;
-
+  let start_label = create_label();
+  unsafe{ loop_stack.push(start_label.clone()) };
   match tokens[*index] {
     Token::LeftCurly => {
       *index += 1;
     }
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
+  
 
   let mut while_loop_body = String::from(""); 
   while !matches!(tokens[*index], Token::RightCurly) {
@@ -1189,14 +1203,13 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
     _ => {return Err(String::from("parse while statement incomplete"));}
   }
   let mut loop_code = String::from("");
-  let start_label = create_label();
-  let end_label = create_label();
   loop_code += &format!(":{}\n", start_label);
   loop_code += &boolean_expression.code;
-  loop_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, end_label);
+  loop_code += &format!("%branch_ifn {}, :end{}\n", boolean_expression.name, start_label);
   loop_code += &while_loop_body;
   loop_code += &format!("%jmp :{}\n", start_label);
-  loop_code += &format!(":{}\n", end_label);
+  loop_code += &format!(":end{}\n", start_label);
+  unsafe { loop_stack.pop() };
   for (key, typee) in &local_symbol_table.table {
       symbol_table.table.remove(key);
     }
