@@ -442,7 +442,7 @@ fn parse_program(tokens: &Vec<Token>, index: &mut usize, symbol_table:&mut Symbo
     Err(e) => { return Err(e); }
     }
   }
-  if(symbol_table.has_main == false) {
+  if symbol_table.has_main == false {
     return Err(String::from("Main function is not defined"));
   }
   return Ok(code);
@@ -596,7 +596,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
   }
 
   function_code += "%endfunc\n";
-  for (key, typee) in &local_symbol_table.table {
+  for (key, _typee) in &local_symbol_table.table {
       symbol_table.table.remove(key);
     }
   return Ok(function_code);
@@ -703,11 +703,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
 
   match &tokens[*index] {
   Token::LeftBracket => {
-    let mut arrnum = 0;
+    let mut arrnum;
     *index += 1;
     match tokens[*index] {
       Token::Num(array_size) => {
-        if(array_size <= 0) {
+        if array_size <= 0 {
           return Err(String::from("Array size must be greater than 0"));
         }
         *index += 1;
@@ -763,7 +763,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
 fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   let mut dest: String;
-  let mut dest_type: String;
+  let dest_type: String;
   
   match &tokens[*index] {
   Token::Ident(identifier) => {
@@ -1210,7 +1210,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
   loop_code += &format!("%jmp :{}\n", start_label);
   loop_code += &format!(":end{}\n", start_label);
   unsafe { loop_stack.pop() };
-  for (key, typee) in &local_symbol_table.table {
+  for (key, _typee) in &local_symbol_table.table {
       symbol_table.table.remove(key);
     }
   Ok(loop_code)
@@ -1288,7 +1288,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     if_code += &format!(":{}\n", label);
     if_code += &else_body;
     if_code += &format!(":{}\n", end_label);
-    for (key, typee) in &local_symbol_table.table {
+    for (key, _typee) in &local_symbol_table.table {
       symbol_table.table.remove(key);
     }
     Ok(if_code)
@@ -1299,7 +1299,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     if_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, label);
     if_code += &if_body;
     if_code += &format!(":{}\n", label);
-    for (key, typee) in &local_symbol_table.table {
+    for (key, _typee) in &local_symbol_table.table {
       symbol_table.table.remove(key);
     }
     Ok(if_code)
