@@ -442,7 +442,7 @@ fn parse_program(tokens: &Vec<Token>, index: &mut usize, symbol_table:&mut Symbo
     Err(e) => { return Err(e); }
     }
   }
-  if(symbol_table.has_main == false) {
+  if symbol_table.has_main == false {
     return Err(String::from("Main function is not defined"));
   }
   return Ok(code);
@@ -480,7 +480,7 @@ fn create_label() -> String {
 // a loop is done to handle statements.
 
 //untested
-
+#[derive(Debug, Clone, PartialEq)]
 pub enum SymbolType {
     Int,
     IntArray(i32), 
@@ -502,7 +502,10 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
   
   //%func main()
   //%endfunc
-
+  let mut local_symbol_table =  SymbolTable {
+    table: std::collections::HashMap::new(),
+    has_main: false,
+  };
 
   match tokens[*index] {
   Token::Func => { *index += 1; }
@@ -578,7 +581,7 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
   }
 
   while !matches!(tokens[*index], Token::RightCurly) {
-        match parse_statement(tokens, index, symbol_table) {
+        match parse_statement(tokens, index, symbol_table, &mut local_symbol_table) {
         Ok(statement_code) => {
             function_code += &statement_code;
         }
@@ -593,6 +596,9 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
   }
 
   function_code += "%endfunc\n";
+  for (key, _typee) in &local_symbol_table.table {
+      symbol_table.table.remove(key);
+    }
   return Ok(function_code);
 }
 
@@ -605,14 +611,15 @@ fn parse_function(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut Sym
 // returns epsilon if '}'
 
 //untested
-fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
+fn parse_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable, local_symbol_table: &mut SymbolTable) -> Result<String, String> {
   let statement: String;
   match tokens[*index] {
     Token::Int => {      
       match parse_declaration_statement(tokens, index, symbol_table) {
         Ok(declaration_code) => {
           statement = declaration_code.code + &format!("\n");
-          symbol_table.table.insert(declaration_code.ident, declaration_code.symtype);
+          local_symbol_table.table.insert(declaration_code.ident.clone(), declaration_code.symtype.clone());
+          symbol_table.table.insert(declaration_code.ident.clone(), declaration_code.symtype.clone());
           //BOOKMARK2
         } 
         Err(e) => return Err(e),
@@ -696,11 +703,11 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
 
   match &tokens[*index] {
   Token::LeftBracket => {
-    let mut arrnum = 0;
+    let mut arrnum;
     *index += 1;
     match tokens[*index] {
       Token::Num(array_size) => {
-        if(array_size <= 0) {
+        if array_size <= 0 {
           return Err(String::from("Array size must be greater than 0"));
         }
         *index += 1;
@@ -756,7 +763,7 @@ fn parse_declaration_statement(tokens: &Vec<Token>, index: &mut usize, symbol_ta
 fn parse_assignment_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
   let mut statement: String;
   let mut dest: String;
-  let mut dest_type: String;
+  let dest_type: String;
   
   match &tokens[*index] {
   Token::Ident(identifier) => {
@@ -1156,6 +1163,10 @@ fn parse_term(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolT
 //missing while statement, if statement, boolean expression, 
 
 fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
+  let mut local_symbol_table =  SymbolTable {
+    table: std::collections::HashMap::new(),
+    has_main: false,
+  };
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -1179,7 +1190,7 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
 
   let mut while_loop_body = String::from(""); 
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index, symbol_table) {
+    match parse_statement(tokens, index, symbol_table, &mut local_symbol_table) {
       Ok(statement) => {while_loop_body += &statement;},
       Err(e) => {return Err(e);}
     }
@@ -1199,11 +1210,17 @@ fn parse_while_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &
   loop_code += &format!("%jmp :{}\n", start_label);
   loop_code += &format!(":end{}\n", start_label);
   unsafe { loop_stack.pop() };
-
+  for (key, _typee) in &local_symbol_table.table {
+      symbol_table.table.remove(key);
+    }
   Ok(loop_code)
 }
 
 fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut SymbolTable) -> Result<String, String> {
+  let mut local_symbol_table =  SymbolTable {
+    table: std::collections::HashMap::new(),
+    has_main: false,
+  };
   let mut statement: String;
   statement = String::from("");
   match tokens[*index] {
@@ -1224,7 +1241,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
   }
   let mut if_body = String::from("");
   while !matches!(tokens[*index], Token::RightCurly) {
-    match parse_statement(tokens, index, symbol_table) {
+    match parse_statement(tokens, index, symbol_table, &mut local_symbol_table) {
       Ok(statement) => { if_body += &statement },
       Err(e) => {return Err(e);}
     }
@@ -1247,7 +1264,7 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
       _ => {return Err(String::from("expected '{'"));}
     }
     while !matches!(tokens[*index], Token::RightCurly) {
-      match parse_statement(tokens, index, symbol_table) {
+      match parse_statement(tokens, index, symbol_table, &mut local_symbol_table) {
         Ok(statement) => { else_body += &statement; },
         Err(e) => {return Err(e);}
       }
@@ -1271,6 +1288,9 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     if_code += &format!(":{}\n", label);
     if_code += &else_body;
     if_code += &format!(":{}\n", end_label);
+    for (key, _typee) in &local_symbol_table.table {
+      symbol_table.table.remove(key);
+    }
     Ok(if_code)
   }
   else {
@@ -1279,6 +1299,9 @@ fn parse_if_statement(tokens: &Vec<Token>, index: &mut usize, symbol_table: &mut
     if_code += &format!("%branch_ifn {}, :{}\n", boolean_expression.name, label);
     if_code += &if_body;
     if_code += &format!(":{}\n", label);
+    for (key, _typee) in &local_symbol_table.table {
+      symbol_table.table.remove(key);
+    }
     Ok(if_code)
   }
 
